@@ -87,8 +87,9 @@ class Trainer:
         loss_count = 0.0
 
         start_time = time.time()
+
         for epoch in range(max_epoch):
-            # シャッフル
+            # データのシャッフル
             idx = numpy.random.permutation(numpy.arange(data_size))
             x = x[idx]
             t = t[idx]
@@ -109,7 +110,7 @@ class Trainer:
                 loss_count += 1
 
                 # 評価
-                if (eval_interval is not None) and (iters % eval_interval == 0):
+                if (eval_interval is not None) and ((iters + 1) % eval_interval == 0):
                     avg_loss = total_loss / loss_count
                     elapsed_time = time.time() - start_time
                     print((
