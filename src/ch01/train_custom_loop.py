@@ -46,10 +46,9 @@ for epoch in range(max_epoch):
         # 定期的に学習経過を出力
         if (iters+1) % 10 == 0:
             avg_loss = total_loss / loss_count
-            print(
-                (
-                    '| epoch %d |  iter %d / %d | loss %.2f' %
-                    (epoch + 1, iters + 1, max_iters, avg_loss)
+            print((
+                '| epoch %d |  iter %d / %d | loss %.2f' %
+                (epoch + 1, iters + 1, max_iters, avg_loss)
                 )
             )
             loss_list.append(avg_loss)
