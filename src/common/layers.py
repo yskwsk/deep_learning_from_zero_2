@@ -21,7 +21,7 @@ class Layer(Generic[_P], ABC):
         ...
 
     @abstractmethod
-    def backward(self, dout: NDArray) -> NDArray | None:
+    def backward(self, dout: NDArray) -> NDArray:
         ...
 
 
@@ -196,7 +196,7 @@ class Embedding(Layer):
         self.idx = idx
         return W[idx]
 
-    def backward(self, dout: NDArray) -> None:
+    def backward(self, dout: NDArray) -> NDArray:
         if self.idx is None:
             raise ValueError("idx is None")
         dW, = self.grads
@@ -206,4 +206,4 @@ class Embedding(Layer):
             pass
         else:
             np.add.at(dW, self.idx, dout)
-        return None
+        return np.array(np.nan)
