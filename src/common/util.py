@@ -116,7 +116,7 @@ def positive_pointwise_mutual_information_fast(
     eps: float = 1.0e-8
 ) -> np.ndarray:
     '''PPMI（正の相互情報量）の計算の高速版'''
-    N = np.sum(co_occuerence_matrix, dtype=np.float64)
+    N = np.sum(co_occuerence_matrix, dtype=np.float32)
     S = np.sum(co_occuerence_matrix, axis=0)
     Sij = np.outer(S, S)
     ppmi = np.log2(co_occuerence_matrix * N / (Sij) + eps).astype(np.float32)
