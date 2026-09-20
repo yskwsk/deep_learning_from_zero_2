@@ -7,7 +7,7 @@ from common.np import np, NDArray
 
 class SimpleCBOW(BaseModel):
     """Simple CBOW (Continuous Bag-Of-Words)"""
-    def __init__(self, vocab_size: int, hidden_size: int):
+    def __init__(self, vocab_size: int, hidden_size: int) -> None:
         # 重みの初期化
         W_in = 1.0e-2 * np.random.randn(vocab_size, hidden_size).astype(np.float32)
         W_out = 1.0e-2 * np.random.randn(hidden_size, vocab_size).astype(np.float32)

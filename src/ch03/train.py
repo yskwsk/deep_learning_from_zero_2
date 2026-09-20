@@ -38,7 +38,7 @@ trainer.fit(
     max_epoch=max_epoch,
     batch_size=batch_size
 )
-trainer.plot(ylim=(0.0, 2.0))
+trainer.plot()
 
 word_vecs = model.word_vecs
 for word_id, word in id_to_word.items():
