@@ -189,9 +189,9 @@ class Embedding(Layer):
     def __init__(self, W: NDArray) -> None:
         self.params = [W]
         self.grads = [np.zeros_like(W)]
-        self.idx: int | None = None
+        self.idx: NDArray | None = None
 
-    def forward(self, idx: int) -> NDArray:
+    def forward(self, idx: NDArray) -> NDArray:
         W, = self.params
         self.idx = idx
         return W[idx]
