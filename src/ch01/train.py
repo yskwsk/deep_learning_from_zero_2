@@ -1,10 +1,14 @@
 # coding: utf-8
 
+import numpy as np
+
 from common.optimizer import SGD
 from common.optimizer_param import SGDParam
 from common.trainer import Trainer
 from dataset import spiral
 from two_layer_net import TwoLayerNet
+
+np.random.seed(1234)
 
 
 # ハイパーパラメータの設定
