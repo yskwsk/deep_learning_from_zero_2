@@ -41,7 +41,7 @@ class MatMul(Layer):
             raise ValueError("x is None")
         W, = self.params
         dx = np.dot(dout, W.T)
-        dW = np.dot(self.x, dout)
+        dW = np.dot(self.x.T, dout)
         self.grads[0][...] = dW
         return dx
 

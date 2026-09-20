@@ -82,9 +82,10 @@ class Trainer:
         data_size = len(x)
         max_iters = data_size // batch_size
         self.eval_interval = eval_interval
-        model, optimizer = self.model, self.optimizer
+        model = self.model
+        optimizer = self.optimizer
         total_loss = 0.0
-        loss_count = 0.0
+        loss_count = 0
 
         start_time = time.time()
 
@@ -110,7 +111,7 @@ class Trainer:
                 loss_count += 1
 
                 # 評価
-                if (eval_interval is not None) and ((iters + 1) % eval_interval == 0):
+                if (eval_interval is not None) and ((iters) % eval_interval == 0):
                     avg_loss = total_loss / loss_count
                     elapsed_time = time.time() - start_time
                     print((
@@ -119,7 +120,7 @@ class Trainer:
                         )
                     )
                     self.loss_list.append(float(avg_loss))
-                    total_loss = 0
+                    total_loss = 0.0
                     loss_count = 0
 
             self.current_epoch += 1

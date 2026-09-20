@@ -21,6 +21,12 @@ def preprocess(text: str) -> tuple[np.ndarray, dict[str, int], dict[int, str]]:
     return corpus, word_to_id, id_to_word
 
 
+def cos_similarity(x: np.ndarray, y: np.ndarray, eps: float = 1e-8) -> float:
+    nx = x / (np.sqrt(np.sum(x ** 2)) + eps)
+    ny = y / (np.sqrt(np.sum(y ** 2)) + eps)
+    return np.dot(nx, ny)
+
+
 def most_similar(
     query: str,
     word_to_id: dict[str, int],
@@ -54,10 +60,28 @@ def most_similar(
             return
 
 
-def cos_similarity(x: np.ndarray, y: np.ndarray, eps: float = 1e-8) -> float:
-    nx = x / (np.sqrt(np.sum(x ** 2)) + eps)
-    ny = y / (np.sqrt(np.sum(y ** 2)) + eps)
-    return np.dot(nx, ny)
+def convert_one_hot(corpus: np.ndarray, vocab_size: int) -> np.ndarray:
+    """one-hot表現への変換
+    Args:
+        corpus: 単語IDのリスト (1次元あるいは2次元のNumPy配列)
+        vocab_size: 語彙数
+    Returns:
+        one-hot: 単語IDのリストをone-hot表現に変換した結果（2次元あるいは3次元のNumPy配列）
+    """
+    N = corpus.shape[0]
+    if corpus.ndim == 1:
+        one_hot = np.zeros((N, vocab_size), dtype=np.int32)
+        for idx, word_id in enumerate(corpus):
+            one_hot[idx, word_id] = 1
+    elif corpus.ndim == 2:
+        C = corpus.shape[1]
+        one_hot = np.zeros((N, C, vocab_size), dtype=np.int32)
+        for idx_0, word_ids in enumerate(corpus):
+            for idx_1, word_id in enumerate(word_ids):
+                one_hot[idx_0, idx_1, word_id] = 1
+    else:
+        raise ValueError("corpus.ndim must be 1 or 2.")
+    return one_hot
 
 
 def create_co_occurence_matrix(
@@ -122,6 +146,27 @@ def positive_pointwise_mutual_information_fast(
     ppmi = np.log2(co_occuerence_matrix * N / (Sij) + eps).astype(np.float32)
     ppmi = np.where(ppmi > 0.0, ppmi, 0.0)
     return ppmi
+
+
+def create_contexts_target(
+    corpus: np.ndarray,
+    window_size: int = 1
+) -> tuple[np.ndarray, np.ndarray]:
+    target = corpus[window_size:-window_size]
+    contexts: list[list[int]] = []
+
+    begin = window_size
+    end = len(corpus) - window_size
+
+    for idx in range(begin, end):
+        cs: list[int] = []
+        for t in range(-window_size, window_size + 1):
+            if t == 0:
+                continue
+            cs.append(corpus[idx + t])
+        contexts.append(cs)
+
+    return np.array(contexts), np.array(target)
 
 
 # def to_cpu(x):

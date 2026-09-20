@@ -138,7 +138,8 @@ class Adam(Optimizer[AdamParam]):
 
     def update(self, params: list[NDArray], grads: list[NDArray]) -> None:
         if self.m is None or self.v is None:
-            self.m, self.v = [], []
+            self.m = []
+            self.v = []
             for param in params:
                 self.m.append(np.zeros_like(param))
                 self.v.append(np.zeros_like(param))
