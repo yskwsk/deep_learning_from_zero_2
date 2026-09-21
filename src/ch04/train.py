@@ -1,10 +1,13 @@
 # coding: utf-8
 
+import sys
+sys.path.append('..')
+
 import pickle
 from typing import Any
 
 from common import config
-config.GPU = True
+config.GPU = False
 
 from cbow import CBOW
 from common.np import np

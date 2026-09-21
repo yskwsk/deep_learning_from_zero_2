@@ -1,5 +1,8 @@
 # coding: utf-8
 
+import sys
+sys.path.append('..')
+
 from dataclasses import dataclass
 
 
