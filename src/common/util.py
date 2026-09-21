@@ -169,18 +169,18 @@ def create_contexts_target(
     return np.array(contexts), np.array(target)
 
 
-# def to_cpu(x):
-#     import numpy
-#     if isinstance(x, numpy.ndarray):
-#         return x
-#     return np.asnumpy(x)
+def to_cpu(x):
+    import numpy
+    if isinstance(x, numpy.ndarray):
+        return x
+    return np.asnumpy(x)
 
 
-# def to_gpu(x):
-#     import cupy
-#     if type(x) == cupy.ndarray:
-#         return x
-#     return cupy.asarray(x)
+def to_gpu(x):
+    import cupy
+    if isinstance(x, cupy.ndarray):
+        return x
+    return cupy.asarray(x)
 
 
 def clip_grads(grads: list[NDArray], max_norm: float) -> None:

@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Generic, ParamSpec
 
-from common.config import GPU
+from common import config
 from common.functions import cross_entropy_error, softmax
 from common.np import np, NDArray
 
@@ -201,9 +201,8 @@ class Embedding(Layer):
             raise ValueError("idx is None")
         dW, = self.grads
         dW[...] = 0
-        if GPU:
-            # np.scatter_add(dW, self.idx, dout)
-            pass
+        if config.GPU:
+            np.scatter_add(dW, self.idx, dout)
         else:
             np.add.at(dW, self.idx, dout)
         return np.array(np.nan)

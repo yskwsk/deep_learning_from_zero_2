@@ -3,10 +3,13 @@
 import pickle
 from typing import Any
 
+from common import config
+config.GPU = True
+
 from cbow import CBOW
 from common.np import np
 from common.optimizer import Adam
-from common.util import create_contexts_target
+from common.util import create_contexts_target, to_cpu, to_gpu
 from common.trainer import Trainer
 from dataset import ptb
 
@@ -24,6 +27,8 @@ contexts, target = create_contexts_target(
     corpus=corpus,
     window_size=window_size
 )
+if config.GPU:
+    contexts, target = to_gpu(contexts), to_gpu(target)
 
 # モデルの生成
 model = CBOW(
@@ -49,6 +54,8 @@ trainer.plot()
 
 # 後ほど利用できるように必要なデータを保存
 word_vecs = model.word_vecs
+if config.GPU:
+    word_vecs = to_cpu(word_vecs)
 params: dict[str, Any] = {}
 params['word_vecs'] = word_vecs.astype(np.float16)
 params['word_to_id'] = word_to_id

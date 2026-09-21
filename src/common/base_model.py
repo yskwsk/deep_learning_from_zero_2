@@ -4,10 +4,10 @@ import os
 import pickle
 from typing import Protocol
 
-# from common.config import GPU
+from common import config
 from common.layers import Layer
 from common.np import np, NDArray
-# from common.util import to_gpu, to_cpu
+from common.util import to_gpu, to_cpu
 
 
 class BaseModel(Protocol):
@@ -26,8 +26,8 @@ class BaseModel(Protocol):
             file_name = self.__class__.__name__ + '.pkl'
 
         params = [p.astype(np.float16) for p in self.params]
-        # if GPU:
-        #     params = [to_cpu(p) for p in params]
+        if config.GPU:
+            params = [to_cpu(p) for p in params]
 
         with open(file_name, 'wb') as f:
             pickle.dump(params, f)
@@ -46,8 +46,8 @@ class BaseModel(Protocol):
             params = pickle.load(f)
 
         params = [p.astype('f') for p in params]
-        # if GPU:
-        #     params = [to_gpu(p) for p in params]
+        if config.GPU:
+            params = [to_gpu(p) for p in params]
 
         for i, param in enumerate(self.params):
             param[...] = params[i]
