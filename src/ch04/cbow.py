@@ -1,8 +1,5 @@
 # coding: utf-8
 
-import sys
-sys.path.append('..')
-
 from negative_sampling_layer import NegativeSamplingLoss
 from common.base_model import BaseModel
 from common.layers import Embedding

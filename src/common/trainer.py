@@ -1,8 +1,5 @@
 # coding: utf-8
 
-import sys
-sys.path.append('..')
-
 import numpy
 import time
 import matplotlib.pyplot as plt

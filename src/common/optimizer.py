@@ -1,8 +1,5 @@
 # coding: utf-8
 
-import sys
-sys.path.append('..')
-
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
