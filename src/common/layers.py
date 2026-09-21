@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from typing import Generic, ParamSpec
 
 from common import config
+if config.GPU:
+    import cupyx
 from common.functions import cross_entropy_error, softmax
 from common.np import np, NDArray
 
@@ -202,7 +204,8 @@ class Embedding(Layer):
         dW, = self.grads
         dW[...] = 0
         if config.GPU:
-            np.scatter_add(dW, self.idx, dout)
+            # np.scatter_add(dW, self.idx, dout)
+            cupyx.scatter_add(dW, self.idx, dout)
         else:
             np.add.at(dW, self.idx, dout)
         return np.array(np.nan)
