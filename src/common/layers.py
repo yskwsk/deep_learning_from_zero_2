@@ -18,12 +18,10 @@ class Layer(Generic[_P], ABC):
     grads: list[NDArray]
 
     @abstractmethod
-    # def forward(self, x: NDArray, *args: _P.args, **kwargs: _P.kwargs) -> NDArray:
     def forward(self, *args: _P.args, **kwargs: _P.kwargs) -> NDArray:
         ...
 
     @abstractmethod
-    # def backward(self, dout: NDArray) -> tuple[NDArray, ...]:
     def backward(self, *args: _P.args, **kwargs: _P.kwargs) -> NDArray | tuple[NDArray, ...]:
         ...
 
@@ -32,6 +30,8 @@ class MatMul(Layer):
     def __init__(self, W: NDArray) -> None:
         self.params = [W]
         self.grads = [np.zeros_like(W)]
+
+        # 入力ベクトルを保持する変数
         self.x: NDArray | None = None
 
     def forward(self, x: NDArray) -> NDArray:

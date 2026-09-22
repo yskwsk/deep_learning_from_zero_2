@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from common.functions import softmax
+from common.functions import sigmoid, softmax
 from common.np import np, NDArray
 from common.layers import Embedding, Layer
 
@@ -148,6 +148,149 @@ class TimeRNN(Layer):
         self.dh = dh
 
         return dxs
+
+
+class LSTM(Layer):
+    def __init__(self, Wx: NDArray, Wh: NDArray, b: NDArray) -> None:
+        """
+        Args:
+            Wx: 入力 x 用の重みパラメータ
+            Wh: 隠れ状態 h 用の重みパラメータ
+            b: バイアス
+
+            入力 x のデータの次元数をD、隠れ状態 h の次元数をHとすると、
+            Wx、Wh、bは、f, g, i, oの4つ分の重みをまとめるため、
+                Wxは、(D, 4H)の配列
+                Whは、(H, 4H)の配列
+                bは、(4H, )の配列
+            となる。
+        """
+        self.params = [Wx, Wh, b]
+        self.grads = [
+            np.zeros_like(Wx),
+            np.zeros_like(Wh),
+            np.zeros_like(b),
+        ]
+
+        # キャッシュ用の変数
+        self.x: NDArray | None = None
+        self.h_prev: NDArray | None = None
+        self.c_prev: NDArray | None = None
+        self.i: NDArray | None = None
+        self.f: NDArray | None = None
+        self.g: NDArray | None = None
+        self.o: NDArray | None = None
+        self.c_next: NDArray | None = None
+
+    def forward(self, x: NDArray, h_prev: NDArray, c_prev: NDArray) -> tuple[NDArray, ...]:
+        """
+        Args:
+            x: 入力、(N, D)の配列
+                N: バッチサイズ
+                D: 入力データの次元数
+            h_prev: 前のLSTMの隠れ状態、(N, H)の配列
+                H: 隠れ状態の次元数
+            c_prev: 前のLSTMの記憶セル、(N, H)の配列
+
+        Returns:
+            h_next: 隠れ状態、(N, H)の配列
+            c_next: 次のLSTMへ渡す記憶セル、(N, H)の配列
+        """
+        Wx, Wh, b = self.params
+
+        # バッチサイズ N と隠れ状態の次元数 H の取得
+        N, H = h_prev.shape
+
+        # 各ゲートの計算
+        # 計算結果のAは、(N, 4H)の配列
+        A = np.dot(x, Wx) + np.dot(h_prev, Wh) + b
+
+        # Aから、各ゲートの要素を取得する
+        # 各ゲートの要素はそれぞれ、(N, H)の配列
+        f = A[:, :H]
+        g = A[:, H:2*H]
+        i = A[:, 2*H:3*H]
+        o = A[:, 3*H:]
+
+        f = sigmoid(f)
+        g = np.tanh(g)
+        i = sigmoid(i)
+        o = sigmoid(o)
+
+        # 次の記憶セルの計算
+        c_next = f * c_prev + g * i
+
+        # 次の隠れ状態の計算
+        h_next = o * np.tanh(c_next)
+
+        # キャッシュ用の変数への格納
+        self.x = x
+        self.h_prev = h_prev
+        self.c_prev = c_prev
+        self.i = i
+        self.f = f
+        self.g = g
+        self.o = o
+        self.c_next = c_next
+
+        return h_next, c_next
+
+    def backward(self, dh_next: NDArray, dc_next: NDArray):
+        """
+        Args:
+            dh_next: 上流(出力側の層)から伝わる勾配、
+            dc_next: 次のLSTMから伝わる勾配
+
+        Returns:
+            dx:
+            dh_prev:
+            dc_prev:
+        """
+        if (
+            (self.x is None) or
+            (self.h_prev is None) or
+            (self.c_prev is None) or
+            (self.i is None) or
+            (self.f is None) or
+            (self.g is None) or
+            (self.o is None) or
+            (self.c_next is None)
+        ):
+            raise ValueError("cache is None")
+
+        Wx, Wh, _ = self.params
+
+        tanh_c_next = np.tanh(self.c_next)
+
+        # 分岐ノードを考慮したLSTM内のc_nextに関する逆伝播
+        # c_nextを次のLSTMへ流す方向 + tanh(c_next)を計算する方向
+        # (y = tanh(x)の微分) = 1 - y*y
+        ds = dc_next + (dh_next * self.o * (1 - tanh_c_next**2))
+
+        dc_prev = ds * self.g
+
+        # 各ゲートに関する逆伝播
+        # (y = sigmoid(x)の微分) = y * (1 - y)
+        df = ds * self.c_prev * self.f * (1 - self.f)
+        dg = ds * self.i * (1 - self.g**2)
+        di = ds * self.g * self.i * (1 - self.i)
+        do = dh_next * tanh_c_next * self.o * (1 - self.o)
+
+        # sliceノードの逆伝播
+        dA = np.hstack((df, dg, di, do))
+
+        dWh = np.dot(self.h_prev.T, dA)
+        dWx = np.dot(self.x.T, dA)
+        db = dA.sum(axis=0)
+
+        self.grads[0][...] = dWx
+        self.grads[1][...] = dWh
+        self.grads[2][...] = db
+
+        dx = np.dot(dA, Wx.T)
+        dh_prev = np.dot(dA, Wh.T)
+
+        return dx, dh_prev, dc_prev
 
 
 class TimeEmbedding(Layer):
