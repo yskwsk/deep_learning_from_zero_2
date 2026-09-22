@@ -4,7 +4,7 @@ import pickle
 from typing import Any
 
 from common import config
-config.GPU = True
+# config.GPU = True
 
 from cbow import CBOW
 from common.np import np
