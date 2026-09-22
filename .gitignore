@@ -2,5 +2,6 @@
 venv
 **/__pycache__/**
 **/.mypy_cache/**
+src/ch04/*.pkl
 src/dataset/ptb.train.*
 src/dataset/ptb.vocab.*
