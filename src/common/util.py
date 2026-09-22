@@ -1,6 +1,7 @@
 # coding: utf-8
 
 from common.np import np, NDArray
+# import numpy as np
 
 
 def preprocess(text: str) -> tuple[np.ndarray, dict[str, int], dict[int, str]]:
@@ -177,7 +178,7 @@ def to_cpu(x):
 
 
 def to_gpu(x):
-    import cupy
+    import cupy  # type: ignore[import-not-found]
     if isinstance(x, cupy.ndarray):
         return x
     return cupy.asarray(x)
@@ -193,3 +194,57 @@ def clip_grads(grads: list[NDArray], max_norm: float) -> None:
     if rate < 1.0:
         for grad in grads:
             grad *= rate
+
+
+def analogy(
+    word1: str,
+    word2: str,
+    word3: str,
+    word_to_id: dict[str, int],
+    id_to_word: dict[int, str],
+    word_matrix: np.ndarray,
+    top: int = 5,
+    answer: str | None = None
+):
+    for word in (word1, word2, word3):
+        if word not in word_to_id:
+            print(f"{word} is not found")
+            return
+
+    print(f"\n[analogy] {word1}:{word2} = {word3}:?")
+    word1_vec = word_matrix[word_to_id[word1]]
+    word2_vec = word_matrix[word_to_id[word2]]
+    word3_vec = word_matrix[word_to_id[word3]]
+    query_vec = word2_vec - word1_vec + word3_vec
+    query_vec = normalize(query_vec)
+
+    similarity = np.dot(word_matrix, query_vec)
+
+    if answer is not None:
+        ans_id = word_to_id[answer]
+        ans = np.dot(word_matrix[ans_id], query_vec)
+        print(f"==>{answer}:{ans}")
+
+    count = 0
+    for i in (-1 * similarity).argsort():
+        if np.isnan(similarity[i]):
+            continue
+        if id_to_word[i] in (word1, word2, word3):
+            continue
+        print(f" {id_to_word[i]}: {similarity[i]}")
+
+        count += 1
+        if count >= top:
+            return
+
+
+def normalize(x: np.ndarray):
+    if x.ndim == 1:
+        s = np.sqrt((x * x).sum())
+        x /= s
+    elif x.ndim == 2:
+        s = np.sqrt((x * x).sum(axis=1))
+        x /= s.reshape((s.shape[0], 1))
+    else:
+        raise ValueError("ndim of input array must be 1 or 2.")
+    return x

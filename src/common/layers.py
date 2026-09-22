@@ -5,7 +5,7 @@ from typing import Generic, ParamSpec
 
 from common import config
 if config.GPU:
-    import cupyx
+    import cupyx  # type: ignore[import-not-found]
 from common.functions import cross_entropy_error, softmax
 from common.np import np, NDArray
 
@@ -23,7 +23,8 @@ class Layer(Generic[_P], ABC):
         ...
 
     @abstractmethod
-    def backward(self, dout: NDArray) -> NDArray:
+    # def backward(self, dout: NDArray) -> tuple[NDArray, ...]:
+    def backward(self, *args: _P.args, **kwargs: _P.kwargs) -> NDArray | tuple[NDArray, ...]:
         ...
 
 
@@ -184,7 +185,7 @@ class Dropout(Layer):
     def backward(self, dout: NDArray) -> NDArray:
         if self.mask is None:
             raise ValueError("mask is None")
-        return dout * self.mask
+        return dout * self.mask,
 
 
 class Embedding(Layer):

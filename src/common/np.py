@@ -6,7 +6,7 @@ from common.config import GPU
 
 
 if GPU:
-    import cupy as np
+    import cupy as np  # type: ignore[import-not-found]
     np.cuda.set_allocator(np.cuda.MemoryPool().malloc)
     # NDArray: TypeAlias = np.ndarray[tuple[Any, ...], np.dtype]
 
