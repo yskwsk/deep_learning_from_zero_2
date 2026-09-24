@@ -7,9 +7,10 @@ from common import config
 # config.GPU = True
 
 from cbow import CBOW
+from common.gpu import to_cpu, to_gpu
 from common.np import np
 from common.optimizer import Adam
-from common.util import create_contexts_target, to_cpu, to_gpu
+from common.util import create_contexts_target
 from common.trainer import Trainer
 from dataset import ptb
 
