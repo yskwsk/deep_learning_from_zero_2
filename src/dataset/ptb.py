@@ -29,7 +29,7 @@ KEY_FILES: Final[dict[DATA_TYPE, str]] = {
 SAVE_FILES: Final[dict[DATA_TYPE, str]] = {
     "train": "ptb.train.npy",
     "test": "ptb.test.npy",
-    "valid": "ptb.balid.npy",
+    "valid": "ptb.valid.npy",
 }
 
 VOCAB_FILE: Final[str] = "ptb.vocab.pkl"
