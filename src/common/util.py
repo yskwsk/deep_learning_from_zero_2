@@ -1,5 +1,10 @@
 # coding: utf-8
 
+from __future__ import annotations
+
+import sys
+
+from common.base_model import BaseModel
 from common.np import np, NDArray
 # import numpy as np
 
@@ -170,30 +175,54 @@ def create_contexts_target(
     return np.array(contexts), np.array(target)
 
 
-def to_cpu(x):
-    import numpy
-    if isinstance(x, numpy.ndarray):
-        return x
-    return np.asnumpy(x)
-
-
-def to_gpu(x):
-    import cupy  # type: ignore[import-not-found]
-    if isinstance(x, cupy.ndarray):
-        return x
-    return cupy.asarray(x)
-
-
 def clip_grads(grads: list[NDArray], max_norm: float) -> None:
-    total_norm = 0.0
+    total_norm = 0
     for grad in grads:
         total_norm += np.sum(grad ** 2)
     total_norm = np.sqrt(total_norm)
 
     rate = max_norm / (total_norm + 1e-6)
-    if rate < 1.0:
+    if rate < 1:
         for grad in grads:
             grad *= rate
+
+
+def eval_perplexity(
+    model: BaseModel,
+    corpus: np.ndarray,
+    batch_size: int = 10,
+    time_size: int = 35,
+) -> float:
+    print("evaluating perplexity ...")
+
+    corpus_size = len(corpus)
+    total_loss = 0.0
+    max_iters = (corpus_size - 1) // (batch_size * time_size)
+    jump = (corpus_size - 1) // batch_size
+
+    for iters in range(max_iters):
+        xs = np.zeros((batch_size, time_size), dtype=np.int32)
+        ts = np.zeros((batch_size, time_size), dtype=np.int32)
+        time_offset = iters * time_size
+        offsets = [time_offset + (i * jump) for i in range(batch_size)]
+        for t in range(time_size):
+            for i, offset in enumerate(offsets):
+                xs[i, t] = corpus[(offset + t) % corpus_size]
+                ts[i, t] = corpus[(offset + t + 1) % corpus_size]
+
+        try:
+            loss = model.forward(xs, ts, train_flg=False)  # type: ignore[call-arg]
+        except TypeError:
+            loss = model.forward(xs, ts)
+        total_loss += loss
+
+        sys.stdout.write('\r%d / %d' % (iters, max_iters))
+        sys.stdout.flush()
+
+    print('')
+    ppl = np.exp(total_loss / max_iters)
+
+    return float(ppl)
 
 
 def analogy(

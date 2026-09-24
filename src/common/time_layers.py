@@ -6,7 +6,25 @@ from common.layers import Embedding, Layer
 
 
 class RNN(Layer):
-    def __init__(self, Wx: NDArray, Wh: NDArray, b: NDArray) -> None:
+    """
+    RNNレイヤ
+    """
+    def __init__(
+        self,
+        Wx: NDArray,
+        Wh: NDArray,
+        b: NDArray
+    ) -> None:
+        """
+        Args:
+            Wx: 入力データの変換用の行列、(D, H)の配列
+                D: 入力データの次元数
+                H: 変換後のデータの次元数
+            Wh: 隠れ状態の変換用の行列、(H, H)の配列
+            b: バイアス、(H, )の配列
+        """
+
+        # パラメータと勾配の初期化
         self.params = [Wx, Wh, b]
         self.grads = [
             np.zeros_like(Wx),
@@ -14,30 +32,69 @@ class RNN(Layer):
             np.zeros_like(b),
         ]
 
-        self.cache: list[NDArray] | None = None
+        # キャッシュ用の変数
+        self.x: NDArray | None = None
+        self.h_prev: NDArray | None = None
+        self.h_next: NDArray | None = None
 
     def forward(self, x: NDArray, h_prev: NDArray) -> NDArray:
+        """
+        Args:
+            x: 入力データ、(N, D)の配列
+                N: バッチサイズ
+                D: 入力データの次元数
+            h_prev: 前のRNNの隠れ状態、(N, H)の配列
+                H: 隠れ状態の次元数
+
+        Returns:
+            h_next: 隠れ状態、(N, H)の配列
+        """
+
         Wx, Wh, b = self.params
         t = np.dot(h_prev, Wh) + np.dot(x, Wx) + b
         h_next = np.tanh(t)
 
-        self.cache = [x, h_prev, h_next]
+        # キャッシュ用の変数に格納
+        self.x = x
+        self.h_prev = h_prev
+        self.h_next = h_next
+
         return h_next
 
     def backward(self, dh_next: NDArray) -> tuple[NDArray, ...]:
-        if self.cache is None:
+        """
+        Args:
+            dh_next: 上流(出力側の層)から伝わるの勾配、(N, H)の配列
+                N: バッチサイズ
+                H: 隠れ状態の次元数
+
+        Returns:
+            dx: 入力データに対する勾配、(N, D)の配列
+                D: 入力データの次元数
+            dh_prev: 前のRNNレイヤの隠れ状態に対する勾配、(N, H)の配列
+        """
+
+        # キャッシュ用の変数の確認
+        if (self.x is None) or (self.h_prev is None) or (self.h_next is None):
             raise ValueError("cache is None")
 
-        Wx, Wh, b = self.params
-        x, h_prev, h_next = self.cache
+        Wx, Wh, _ = self.params
 
-        dt = dh_next * (1 - h_next * h_next)  # tanhの微分
+        # tanhの微分
+        dt = dh_next * (1 - self.h_next * self.h_next)
+
+        # バイアスはバッチサイズ方向に和を計算
         db = np.sum(dt, axis=0)
-        dWh = np.dot(h_prev.T, dt)
+
+        # 隠れ状態に関する勾配の計算
+        dWh = np.dot(self.h_prev.T, dt)
         dh_prev = np.dot(dt, Wh.T)
-        dWx = np.dot(x.T, dt)
+
+        # 入力データに関する勾配の計算
+        dWx = np.dot(self.x.T, dt)
         dx = np.dot(dt, Wx.T)
 
+        # 勾配の格納
         self.grads[0][...] = dWx
         self.grads[1][...] = dWh
         self.grads[2][...] = db
@@ -46,19 +103,41 @@ class RNN(Layer):
 
 
 class TimeRNN(Layer):
-    def __init__(self, Wx: NDArray, Wh: NDArray, b: NDArray, stateful: bool = False) -> None:
+    """
+    複数のRNNから構成せれるレイヤ
+    """
+    def __init__(
+        self,
+        Wx: NDArray,
+        Wh: NDArray,
+        b: NDArray,
+        stateful: bool = False
+    ) -> None:
+        """
+        Args:
+            Wx: 入力 x 用の重みパラメータ、(D, H)の配列
+                D: 入力データの次元数
+                H: 隠れ状態の次元数
+            Wh: 隠れ状態 h 用の重みパラメータ、(H, H)の配列
+            b: バイアス、(H, )の配列
+            stateful: 隠れ状態を保つかどうかを決める真偽値
+        """
+
+        # パラメータと勾配の初期化
         self.params = [Wx, Wh, b]
         self.grads = [
             np.zeros_like(Wx),
             np.zeros_like(Wh),
             np.zeros_like(b),
         ]
+
         # RNNレイヤを格納するためのリスト
         self.layers: list[RNN] | None = None
 
         # 隠れ状態を保持する用の変数
         self.h: NDArray | None = None
         self.dh: NDArray | None = None
+
         # 隠れ状態を引き継ぐかどうかを決める真偽値
         self.statefule = stateful
 
@@ -72,14 +151,21 @@ class TimeRNN(Layer):
 
     def forward(self, xs: NDArray) -> NDArray:
         """
-        xs: 入力ベクトル、(N x T x D)の配列
-            N: バッチサイズ
-            T: 時系列数
-            D: 1つの入力ベクトルの次元数
+        Args:
+            xs: 入力ベクトル、(N, T, D)の配列
+                N: バッチサイズ
+                T: 時系列数
+                D: 1つの入力ベクトルの次元数
+
+        Returns:
+            hs: 各RNNの隠れ状態、(N, T, H)の配列
+                H: 隠れ状態の次元数
         """
         Wx, _, _ = self.params
+
         # バッチサイズ N と時系列数 T の取得
         N, T, _ = xs.shape
+
         # 隠れ状態(ベクトル)の次元数 H の取得
         _, H = Wx.shape
 
@@ -90,7 +176,7 @@ class TimeRNN(Layer):
         hs = np.empty((N, T, H), dtype=np.float32)
 
         if not self.statefule or self.h is None:
-            # statefule = False のとき、hをゼロ行列でリセット
+            # stateful = False のとき、hをゼロ行列でリセット
             self.h = np.zeros((N, H), dtype=np.float32)
 
         # RNNレイヤを生成し、各時刻の隠れ状態を計算し、hsに格納
@@ -105,17 +191,26 @@ class TimeRNN(Layer):
 
     def backward(self, dhs: NDArray) -> NDArray:
         """
-        dhs: 上流(出力側の層)から伝わる勾配、(N x T x H)の配列
-            N: バッチサイズ
-            T: 時系列数
-            H: 隠れ状態の次元数
+        Args:
+            dhs: 上流(出力側の層)から伝わる勾配、(N, T, H)の配列
+                N: バッチサイズ
+                T: 時系列数
+                H: 隠れ状態の次元数
+
+        Returns:
+            dxs: 入力データに対する勾配、(N, T, D)の配列
+                D: 入力データの次元数
         """
+
+        # キャッシュ用の変数の確認
         if self.layers is None:
             raise ValueError("layers is None")
 
         Wx, _, _ = self.params
+
         # バッチサイズ N 、時系列数 T 、隠れ状態の次元数の取得
         N, T, H = dhs.shape
+
         # このTimeRNNへの入力ベクトルの次元数 D の取得
         D, _ = Wx.shape
 
@@ -144,6 +239,7 @@ class TimeRNN(Layer):
         # 勾配のセット
         for i, grad in enumerate(grads):
             self.grads[i][...] = grad
+
         # 前時刻への隠れ状態の勾配の保持
         self.dh = dh
 
@@ -151,7 +247,12 @@ class TimeRNN(Layer):
 
 
 class LSTM(Layer):
-    def __init__(self, Wx: NDArray, Wh: NDArray, b: NDArray) -> None:
+    def __init__(
+        self,
+        Wx: NDArray,
+        Wh: NDArray,
+        b: NDArray
+    ) -> None:
         """
         Args:
             Wx: 入力 x 用の重みパラメータ
@@ -165,6 +266,8 @@ class LSTM(Layer):
                 bは、(4H, )の配列
             となる。
         """
+
+        # パラメータと重みと初期化
         self.params = [Wx, Wh, b]
         self.grads = [
             np.zeros_like(Wx),
@@ -182,7 +285,12 @@ class LSTM(Layer):
         self.o: NDArray | None = None
         self.c_next: NDArray | None = None
 
-    def forward(self, x: NDArray, h_prev: NDArray, c_prev: NDArray) -> tuple[NDArray, ...]:
+    def forward(
+        self,
+        x: NDArray,
+        h_prev: NDArray,
+        c_prev: NDArray
+    ) -> tuple[NDArray, ...]:
         """
         Args:
             x: 入力、(N, D)の配列
@@ -196,13 +304,13 @@ class LSTM(Layer):
             h_next: 隠れ状態、(N, H)の配列
             c_next: 次のLSTMへ渡す記憶セル、(N, H)の配列
         """
+
         Wx, Wh, b = self.params
 
-        # バッチサイズ N と隠れ状態の次元数 H の取得
-        N, H = h_prev.shape
+        # 隠れ状態の次元数 H の取得
+        _, H = h_prev.shape
 
-        # 各ゲートの計算
-        # 計算結果のAは、(N, 4H)の配列
+        # 各ゲートの計算、計算結果のAは、(N, 4H)の配列
         A = np.dot(x, Wx) + np.dot(h_prev, Wh) + b
 
         # Aから、各ゲートの要素を取得する
@@ -227,25 +335,34 @@ class LSTM(Layer):
         self.x = x
         self.h_prev = h_prev
         self.c_prev = c_prev
-        self.i = i
         self.f = f
         self.g = g
+        self.i = i
         self.o = o
         self.c_next = c_next
 
         return h_next, c_next
 
-    def backward(self, dh_next: NDArray, dc_next: NDArray):
+    def backward(
+        self,
+        dh_next: NDArray,
+        dc_next: NDArray
+    ) -> tuple[NDArray, ...]:
         """
         Args:
-            dh_next: 上流(出力側の層)から伝わる勾配、
-            dc_next: 次のLSTMから伝わる勾配
+            dh_next: 上流(出力側の層)から伝わる勾配、(N, H)の配列
+                N: バッチサイズ
+                H: 隠れ状態の次元数
+            dc_next: 次のLSTMから伝わる勾配、(N, H)の配列
 
         Returns:
-            dx:
-            dh_prev:
-            dc_prev:
+            dx: 入力データに対する勾配、(N, D)の配列
+                D: 入力データの次元数
+            dh_prev: 前の隠れ状態に対する勾配、(N, H)の配列
+            dc_prev: 前の記憶セルに対する勾配、(N, H)の配列
         """
+
+        # キャッシュ用の変数の確認
         if (
             (self.x is None) or
             (self.h_prev is None) or
@@ -265,9 +382,10 @@ class LSTM(Layer):
         # 分岐ノードを考慮したLSTM内のc_nextに関する逆伝播
         # c_nextを次のLSTMへ流す方向 + tanh(c_next)を計算する方向
         # (y = tanh(x)の微分) = 1 - y*y
-        ds = dc_next + (dh_next * self.o * (1 - tanh_c_next**2))
+        ds = dc_next + (dh_next * self.o) * (1 - tanh_c_next**2)
 
-        dc_prev = ds * self.g
+        # 前の記憶セルの勾配
+        dc_prev = ds * self.f
 
         # 各ゲートに関する逆伝播
         # (y = sigmoid(x)の微分) = y * (1 - y)
@@ -279,6 +397,7 @@ class LSTM(Layer):
         # sliceノードの逆伝播
         dA = np.hstack((df, dg, di, do))
 
+        # 各パラメータに対する勾配の計算
         dWh = np.dot(self.h_prev.T, dA)
         dWx = np.dot(self.x.T, dA)
         db = dA.sum(axis=0)
@@ -287,10 +406,166 @@ class LSTM(Layer):
         self.grads[1][...] = dWh
         self.grads[2][...] = db
 
+        # 入力データと前の隠れ状態に対する勾配
         dx = np.dot(dA, Wx.T)
         dh_prev = np.dot(dA, Wh.T)
 
         return dx, dh_prev, dc_prev
+
+
+class TimeLSTM(Layer):
+    def __init__(
+        self,
+        Wx: NDArray,
+        Wh: NDArray,
+        b: NDArray,
+        stateful: bool = False
+    ) -> None:
+        """
+        Args:
+            Wx: 入力 x 用の重みパラメータ
+            Wh: 隠れ状態 h 用の重みパラメータ
+            b: バイアス
+            stateful: 隠れ状態を引き継ぐかどうかを決める真偽値
+
+            入力 x のデータの次元数をD、隠れ状態 h の次元数をHとすると、
+            Wx、Wh、bは、f, g, i, oの4つ分の重みをまとめるため、
+                Wxは、(D, 4H)の配列
+                Whは、(H, 4H)の配列
+                bは、(4H, )の配列
+            となる。
+        """
+
+        # パラメータと勾配の初期化
+        self.params = [Wx, Wh, b]
+        self.grads = [
+            np.zeros_like(Wx),
+            np.zeros_like(Wh),
+            np.zeros_like(b),
+        ]
+
+        # LSTMレイヤを格納するリスト
+        self.layers: list[LSTM] | None = None
+
+        # キャッシュ用の変数
+        self.h: NDArray | None = None
+        self.c: NDArray | None = None
+        self.dh: NDArray | None = None
+
+        # 隠れ状態を引き継ぐかどうかを決める真偽値
+        self.stateful = stateful
+
+    def set_state(
+        self,
+        h: NDArray,
+        c: NDArray | None = None
+    ) -> None:
+        self.h = h
+        self.c = c
+
+    def reset_state(self) -> None:
+        self.h = None
+        self.c = None
+
+    def forward(self, xs: NDArray) -> NDArray:
+        """
+        Args:
+            xs: (N, T, D)の配列
+                N: バッチサイズ
+                T: 時系列数
+                D: 入力データの次元数
+
+        Returns:
+            hs: 隠れ状態、(N, T, H)の配列
+                H: 隠れ状態の次元数
+        """
+
+        _, Wh, _ = self.params
+
+        # バッチサイズ N と時系列数 T の取得
+        N, T, _ = xs.shape
+
+        # 隠れ状態の次元数の取得
+        H = Wh.shape[0]
+
+        # LSTMリストの初期化
+        self.layers = []
+
+        # 出力の初期化
+        hs = np.empty((N, T, H), dtype=np.float32)
+
+        # statefule = False のとき、隠れ状態 self.h と隠れセル self.c をゼロ行列でリセット
+        if not self.stateful or self.h is None:
+            self.h = np.zeros((N, H), dtype=np.float32)
+        if not self.stateful or self.c is None:
+            self.c = np.zeros((N, H), dtype=np.float32)
+
+        # LSTMを生成し、順伝播の計算
+        # 最後のLSTMの隠れ状態と隠れセルが、self.h と self.c に格納される
+        for t in range(T):
+            layer = LSTM(*self.params)
+            self.h, self.c = layer.forward(xs[:, t, :], self.h, self.c)
+            hs[:, t, :] = self.h
+
+            self.layers.append(layer)
+
+        return hs
+
+    def backward(self, dhs: NDArray):
+        """
+        Args:
+            dhs: 上流(出力側の層)から伝わる勾配、(N x T x H)の配列
+                N: バッチサイズ
+                T: 時系列数
+                H: 隠れ状態の次元数
+
+        Returns:
+            dxs: 入力データに対する勾配、(N, T, D)の配列
+                D: 入力データの次元数
+        """
+
+        if self.layers is None:
+            raise ValueError("layers is None")
+
+        Wx, _, _ = self.params
+
+        # バッチサイズ N と時系列数 T の取得
+        N, T, H = dhs.shape
+
+        # 入力データの次元数 D の取得
+        D = Wx.shape[0]
+
+        # 出力の勾配の初期化
+        dxs = np.empty((N, T, D), dtype=np.float32)
+
+        # 前のLSTMレイヤの隠れ状態と隠れセルの勾配の初期化
+        dh = np.zeros((N, H), dtype=np.float32)
+        dc = np.zeros((N, H), dtype=np.float32)
+
+        # 勾配の初期化
+        grads = [
+            np.zeros_like(self.grads[0]),
+            np.zeros_like(self.grads[1]),
+            np.zeros_like(self.grads[2]),
+        ]
+
+        # 各LSTMレイヤの逆伝播
+        for t in reversed(range(T)):
+            layer = self.layers[t]
+            dx, dh, dc = layer.backward(dhs[:, t, :] + dh, dc)
+            dxs[:, t, :] = dx
+
+            for i, grad in enumerate(layer.grads):
+                grads[i] += grad
+
+        # 勾配のセット
+        for i, grad in enumerate(grads):
+            self.grads[i][...] = grad
+
+        # 前時刻への隠れ状態の勾配の保持
+        self.dh = dh
+
+        return dxs
 
 
 class TimeEmbedding(Layer):
@@ -303,6 +578,7 @@ class TimeEmbedding(Layer):
             V: 語彙数
             D: 単語ベクトルの次元数
         """
+
         self.params = [W]
         self.grads = [np.zeros_like(W)]
         self.layers: list[Embedding] | None = None
@@ -310,14 +586,21 @@ class TimeEmbedding(Layer):
 
     def forward(self, xs: NDArray) -> NDArray:
         """
-        xs: (N x T)の単語IDが格納された入力ベクトル
-            N: バッチサイズ
-            T: 時系列数
+        Args:
+            xs: 単語IDが格納された入力ベクトル、(N, T)の配列
+                N: バッチサイズ
+                T: 時系列数
+
+        Returns
+            out: 単語ベクトルを格納した(N, T, D)の配列
+                D: 単語ベクトルの次元数
         """
+
         # バッチサイズ N と時系列数 T の取得
         N, T = xs.shape
-        # 語彙数 V と 単語ベクトルの次元数 D の取得
-        V, D = self.W.shape
+
+        # 単語ベクトルの次元数 D の取得
+        _, D = self.W.shape
 
         # 出力の初期化
         out = np.empty((N, T, D), dtype=np.float32)
@@ -335,15 +618,20 @@ class TimeEmbedding(Layer):
 
     def backward(self, dout: NDArray) -> NDArray:
         """
-        dout: 上流(出力側の層)から伝わる勾配、(N x T x D)の配列
-            N: バッチサイズ
-            T: 次元数
-            D: 単語ベクトルの次元数
+        Args:
+            dout: 上流(出力側の層)から伝わる勾配、(N, T, D)の配列
+                N: バッチサイズ
+                T: 次元数
+                D: 単語ベクトルの次元数
+
+        Returns:
+            np.array(np.nan)
         """
         if self.layers is None:
             raise ValueError("layers is None")
 
-        N, T, D = dout.shape
+        # 時系列数 T の取得
+        _, T, _ = dout.shape
 
         # 勾配の初期化
         grad = np.zeros_like(self.W)
@@ -355,6 +643,7 @@ class TimeEmbedding(Layer):
             grad += layer.grads[0]
 
         self.grads[0][...] = grad
+
         return np.array(np.nan)
 
 
@@ -363,25 +652,37 @@ class TimeAffine(Layer):
     時系列データをまとめて処理するAffineレイヤ
     """
     def __init__(self, W: NDArray, b: NDArray) -> None:
+        """
+        Args:
+            W: Affine変換の行列、(D, H)の配列
+                D: 入力データの次元数
+                H: Affine変換後のデータの次元数
+            b: Affine変換のバイアス、(H, )の配列
+        """
+
+        # パラメータと勾配の初期化
         self.params = [W, b]
         self.grads = [
             np.zeros_like(W),
             np.zeros_like(b),
         ]
+
         # 入力ベクトルの保持用の変数
         self.x: NDArray | None = None
 
     def forward(self, x: NDArray) -> NDArray:
         """
         Args:
-            x: 入力ベクトル(の集合)、(N x T x D)の配列
+            x: 入力ベクトル(の集合)、(N, T, D)の配列
                 N: バッチサイズ
                 T: 時系列数
                 D: 入力ベクトルの次元数
 
         Returns:
-            out: (N x T x H)の配列
+            out: (N, T, H)の配列
+                H: Affine変換後のデータの次元数
         """
+
         W, b = self.params
 
         # バッチサイズ N と時系列数 T の取得
@@ -408,6 +709,8 @@ class TimeAffine(Layer):
         Returns:
             dx: 順伝播の入力に対する勾配、(N x T x D)の配列
         """
+
+        # キャッシュ用の変数の確認
         if self.x is None:
             raise ValueError("x is None")
 
@@ -450,16 +753,18 @@ class TimeSoftmaxWithLoss(Layer):
     def forward(self, xs: NDArray, ts: NDArray) -> NDArray:
         """
         Args:
-            xs: (N x T x V)の入力データの配列
+            xs: (N, T, V)の入力データの配列
                 N: バッチサイズ
                 T: 時系列数
                 V: 各入力データを表現する次元数
-            ts: 正解ラベルの配列、2次元(N x T)あるいは3次元(N x T x V)
+            ts: 正解ラベルの配列、(N, T)の2次元あるいは(N, T, V)の3次元
                 3次元の場合は、one-hotベクトル
 
         Returns:
-            loss
+            loss: 損失関数の値
         """
+
+        # バッチサイズ N 、時系列数 T 、入力データの次元数 V の取得
         N, T, V = xs.shape
 
         if ts.ndim == 3:
@@ -476,10 +781,13 @@ class TimeSoftmaxWithLoss(Layer):
 
         # softmax lossの計算
         ys = softmax(xs)
+
         # 正解ラベルtsの箇所のデータの箇所を取り出し、ロスを計算する
         ls = np.log(ys[np.arange(N * T), ts])
+
         # ignore_labelに該当するデータは損失を0にする
         ls *= mask
+
         # ロスの総和の計算
         loss = -np.sum(ls)
         loss /= mask.sum()
@@ -498,20 +806,66 @@ class TimeSoftmaxWithLoss(Layer):
             dout: 基本的に 1.0 だけが格納されたNDArray
 
         Returns:
-            dx: 勾配、(N x T x V)の配列
+            dx: 入力データに対する勾配、(N, T, V)の配列
                 N: バッチサイズ
                 T: 時系列数
                 V: 各入力データを表現する次元数
         """
+
+        # キャッシュ用の変数の確認
         if (self.ts is None) or (self.ys is None) or (self.mask is None) or (self.ndim is None):
             raise ValueError("cache is None")
 
+        # バッチサイズ N 、時系列数 T 、入力データの次元数 V の取得
         N, T, V = self.ndim
+
+        # 入力データに対する勾配の計算
         dx = self.ys
         dx[np.arange(N * T), self.ts] -= 1
         dx *= dout
         dx /= self.mask.sum()
+
         # ignore_labelに該当するデータは勾配を0にする
         dx *= self.mask[:, np.newaxis]
 
         return dx.reshape((N, T, V))
+
+
+class TimeDropout(Layer):
+    """
+    時系列データをまとめて処理するDropoutレイヤ
+    """
+    def __init__(self, dropout_ratio: float = 0.5):
+        self.params = []
+        self.grads = []
+        self.dropout_ratio = dropout_ratio
+        self.mask: NDArray | None = None
+        self.train_flg = True
+
+    def forward(self, xs: NDArray) -> NDArray:
+        """
+        Args:
+            xs: 入力データ
+
+        Returns:
+            xs: 入力データにドロップアウトを適用した結果
+                train_flg=Falseの場合は、そのまま入力データを返す
+        """
+
+        if self.train_flg:
+            flg = np.random.rand(*xs.shape) > self.dropout_ratio
+            scale = 1.0 / (1.0 - self.dropout_ratio)
+            self.mask = flg.astype(np.float32) * scale
+            return xs * self.mask
+        else:
+            return xs
+
+    def backward(self, dout: NDArray) -> NDArray:
+        """
+        Args:
+            dout: 上流(出力側の層)から伝わる勾配
+
+        Returns:
+            doutにドロップアウトのmaskを適用した結果
+        """
+        return dout * self.mask

@@ -1,13 +1,15 @@
 # coding: utf-8
 
+from __future__ import annotations
+
 import os
 import pickle
 from typing import Protocol
 
 from common import config
+from common.gpu import to_gpu, to_cpu
 from common.layers import Layer
 from common.np import np, NDArray
-from common.util import to_gpu, to_cpu
 
 
 class BaseModel(Protocol):
@@ -18,7 +20,7 @@ class BaseModel(Protocol):
     def forward(self, x: NDArray, t: NDArray) -> NDArray:
         ...
 
-    def backward(self, dout: NDArray = NDArray(1)) -> NDArray | None:
+    def backward(self, dout: NDArray = np.array(1)) -> NDArray | None:
         ...
 
     def save_params(self, file_name: str | None = None) -> None:
