@@ -389,10 +389,15 @@ class LSTM(Layer):
 
         # 各ゲートに関する逆伝播
         # (y = sigmoid(x)の微分) = y * (1 - y)
-        df = ds * self.c_prev * self.f * (1 - self.f)
-        dg = ds * self.i * (1 - self.g**2)
-        di = ds * self.g * self.i * (1 - self.i)
-        do = dh_next * tanh_c_next * self.o * (1 - self.o)
+        df = ds * self.c_prev
+        dg = ds * self.i
+        di = ds * self.g
+        do = dh_next * tanh_c_next
+
+        df *= self.f * (1 - self.f)
+        dg *= (1 - self.g**2)
+        di *= self.i * (1 - self.i)
+        do *= self.o * (1 - self.o)
 
         # sliceノードの逆伝播
         dA = np.hstack((df, dg, di, do))

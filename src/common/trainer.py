@@ -197,7 +197,8 @@ class RnnlmTrainer:
         self.time_idx = 0
         self.ppl_list = []
         self.eval_interval = eval_interval
-        model, optimizer = self.model, self.optimizer
+        model = self.model
+        optimizer = self.optimizer
         total_loss = 0
         loss_count = 0
 
@@ -224,7 +225,7 @@ class RnnlmTrainer:
                     elapsed_time = time.time() - start_time
                     print((
                         f"| epoch {self.current_epoch + 1}| iter {iters+1} / {max_iters} "
-                        f"| time {elapsed_time:.2f}[s] | perplexity {ppl:.2f}"
+                        f"| time {elapsed_time:.2f}[s] | perplexity {ppl:.8f}"
                         )
                     )
                     self.ppl_list.append(float(ppl))

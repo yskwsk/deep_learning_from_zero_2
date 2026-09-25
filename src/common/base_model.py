@@ -31,6 +31,7 @@ class BaseModel(Protocol):
         if config.GPU:
             params = [to_cpu(p) for p in params]
 
+        print(f"save params to {file_name}")
         with open(file_name, 'wb') as f:
             pickle.dump(params, f)
 
