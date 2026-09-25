@@ -4,12 +4,16 @@ from common import config
 # config.GPU = True
 
 from common.gpu import to_gpu
+from common.np import np
 from common.optimizer import SGD
 from common.optimizer_param import SGDParam
 from common.trainer import RnnlmTrainer
 from common.util import eval_perplexity
 from dataset import ptb
 from better_rnnlm import BetterRnnlm
+
+
+np.random.seed(1234)
 
 
 # ハイパーパラメータの設定
@@ -60,7 +64,7 @@ for epoch in range(max_epoch):
         model.save_params()
     else:
         lr /= 4.0
-        optimizer.param.learning_rate = lr
+        optimizer.learning_rate = lr
 
     model.reset_state()
     print('-' * 50)

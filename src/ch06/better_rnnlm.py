@@ -1,5 +1,7 @@
 # coding: utf-8
 
+from typing import cast
+
 from common.np import np, NDArray
 from common.base_model import BaseModel
 from common.time_layers import (
@@ -55,16 +57,17 @@ class BetterRnnlm(BaseModel):
         self.loss_layer = TimeSoftmaxWithLoss()
 
         # LSTMレイヤのリスト
-        self.lstm_layers: list[TimeLSTM] = []
-        for layer in self.layers:
-            if isinstance(layer, TimeLSTM):
-                self.lstm_layers.append(layer)
+        self.lstm_layers: list[TimeLSTM] = [
+            cast(TimeLSTM, self.layers[2]),
+            cast(TimeLSTM, self.layers[4])
+        ]
 
         # ドロップアウトレイヤのリスト
-        self.drop_layers: list[TimeDropout] = []
-        for layer in self.layers:
-            if isinstance(layer, TimeDropout):
-                self.drop_layers.append(layer)
+        self.drop_layers: list[TimeDropout] = [
+            cast(TimeDropout, self.layers[1]),
+            cast(TimeDropout, self.layers[3]),
+            cast(TimeDropout, self.layers[5]),
+        ]
 
         # 重み(パラメータ)と勾配をまとめる
         self.params = []
