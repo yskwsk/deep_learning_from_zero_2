@@ -54,3 +54,8 @@ class BaseModel(Protocol):
 
         for i, param in enumerate(self.params):
             param[...] = params[i]
+
+
+class BaseSeq2seqModel(BaseModel, Protocol):
+    def generate(self, xs: NDArray, start_id: int, sample_size: int) -> list[int]:
+        ...

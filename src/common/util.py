@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import sys
 
-from common.base_model import BaseModel
+from common.base_model import BaseModel, BaseSeq2seqModel
 from common.np import np, NDArray
-# import numpy as np
 
 
 def preprocess(text: str) -> tuple[np.ndarray, dict[str, int], dict[int, str]]:
@@ -223,6 +223,59 @@ def eval_perplexity(
     ppl = np.exp(total_loss / max_iters)
 
     return float(ppl)
+
+
+def eval_seq2seq(
+    model: BaseSeq2seqModel,
+    question: np.ndarray,
+    correct: np.ndarray,
+    id_to_char: dict[int, str],
+    verbose: bool = False,
+    is_reverse: bool = False
+) -> int:
+    correct = correct.flatten()
+
+    # 頭の区切り文字
+    start_id = correct[0]
+    correct = correct[1:]
+    guess = model.generate(
+        xs=question,
+        start_id=start_id,
+        sample_size=len(correct)
+    )
+
+    # 文字列へ変換
+    question_str = "".join([id_to_char[int(c)] for c in question.flatten()])
+    correct_str = "".join([id_to_char[int(c)] for c in correct])
+    guess_str = "".join([id_to_char[int(c)] for c in guess])
+
+    if verbose:
+        if is_reverse:
+            question_str = question_str[::-1]
+
+        colors = {
+            "ok": "\033[92m",
+            "fail": "\033[91m",
+            "close": "\033[0m"
+        }
+        print("Q", question_str)
+        print("T", correct_str)
+
+        is_windows = (os.name == "nt")
+
+        if correct_str == guess_str:
+            mark = colors["ok"] + '☑' + colors["close"]
+            if is_windows:
+                mark = "O"
+            print(mark + ' ' + guess_str)
+        else:
+            mark = colors["fail"] + '☒' + colors["close"]
+            if is_windows:
+                mark = 'X'
+            print(mark + ' ' + guess_str)
+        print('---')
+
+    return 1 if guess_str == correct_str else 0
 
 
 def analogy(
