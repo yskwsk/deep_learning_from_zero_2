@@ -20,12 +20,11 @@ def _update_vocab(txt: str) -> None:
 def load_data(
     file_name: str = "addition.txt",
     seed: int | None = 1984
-) -> tuple[tuple[numpy.ndarray, numpy.ndarray], tuple[numpy.ndarray, numpy.ndarray]] | None:
+) -> tuple[tuple[numpy.ndarray, numpy.ndarray], tuple[numpy.ndarray, numpy.ndarray]]:
     file_path = os.path.dirname(os.path.abspath(__file__)) + "/" + file_name
 
     if not os.path.exists(file_path):
-        print(f"No file: {file_name}")
-        return None
+        raise ValueError(f"No file: {file_name}")
 
     questions: list[str] = []
     answers: list[str] = []
