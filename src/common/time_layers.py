@@ -17,10 +17,10 @@ class RNN(Layer):
     ) -> None:
         """
         Args:
-            Wx: 入力データの変換用の行列、(D, H)の配列
-                D: 入力データの次元数
-                H: 変換後のデータの次元数
-            Wh: 隠れ状態の変換用の行列、(H, H)の配列
+            Wx: 入力データの変換用の行列、(D, H)の配列 \\
+                D: 入力データの次元数 \\
+                H: 変換後のデータの次元数 \\
+            Wh: 隠れ状態の変換用の行列、(H, H)の配列 \\
             b: バイアス、(H, )の配列
         """
 
@@ -659,8 +659,8 @@ class TimeAffine(Layer):
     def __init__(self, W: NDArray, b: NDArray) -> None:
         """
         Args:
-            W: Affine変換の行列、(D, H)の配列
-                D: 入力データの次元数
+            W: Affine変換の行列、(D, H)の配列 \\
+                D: 入力データの次元数 \\
                 H: Affine変換後のデータの次元数
             b: Affine変換のバイアス、(H, )の配列
         """
@@ -678,13 +678,13 @@ class TimeAffine(Layer):
     def forward(self, x: NDArray) -> NDArray:
         """
         Args:
-            x: 入力ベクトル(の集合)、(N, T, D)の配列
-                N: バッチサイズ
-                T: 時系列数
+            x: 入力ベクトル(の集合)、(N, T, D)の配列 \\
+                N: バッチサイズ \\
+                T: 時系列数 \\
                 D: 入力ベクトルの次元数
 
         Returns:
-            out: (N, T, H)の配列
+            out: (N, T, H)の配列 \\
                 H: Affine変換後のデータの次元数
         """
 
@@ -706,9 +706,9 @@ class TimeAffine(Layer):
     def backward(self, dout: NDArray) -> NDArray:
         """
         Args:
-            dout: 上流(出力側の層)から伝わる勾配、(N x T x H)の配列
-                N: バッチサイズ
-                T: 時系列数
+            dout: 上流(出力側の層)から伝わる勾配、(N x T x H)の配列 \\
+                N: バッチサイズ \\
+                T: 時系列数 \\
                 H: データの次元数
 
         Returns:
