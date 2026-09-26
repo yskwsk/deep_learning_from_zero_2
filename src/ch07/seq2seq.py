@@ -145,10 +145,10 @@ class Decoder(Layer):
     def backward(self, dscore: NDArray) -> NDArray:
         """
         Args:
-            dscore:
+            dscore: 上流(出力側)から伝わる勾配
 
         Returns:
-            dh:
+            dh: Encoderに伝わる隠れ状態の勾配
         """
 
         dout = self.affine.backward(dscore)

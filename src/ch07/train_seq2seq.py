@@ -7,7 +7,10 @@ from common.optimizer import Adam
 from common.trainer import Trainer
 from common.util import eval_seq2seq
 from seq2seq import Seq2seq
-# from peeky_seq2seq import PeekySeq2seq
+from peeky_seq2seq import PeekySeq2seq
+
+
+np.random.seed(1234)
 
 
 # データセットの読み込み
@@ -15,7 +18,7 @@ from seq2seq import Seq2seq
 char_to_id, id_to_char = sequence.get_vocab()
 
 # Reverse input?
-is_reverse = False  # True
+is_reverse = True
 if is_reverse:
     x_train, x_test = x_train[:, ::-1], x_test[:, ::-1]
 
@@ -28,8 +31,11 @@ max_epoch = 25
 max_grad = 5.0
 
 # モデル、オプティマイザ、トレーナーの設定
-model = Seq2seq(vocab_size, wordvec_size, hidden_size)
-# model = PeekySeq2seq(vocab_size, wordvec_size, hidden_size)
+is_peekly_model = True
+if is_peekly_model:
+    model = PeekySeq2seq(vocab_size, wordvec_size, hidden_size)
+else:
+    model = Seq2seq(vocab_size, wordvec_size, hidden_size)
 optimizer = Adam()
 trainer = Trainer(model, optimizer)
 
